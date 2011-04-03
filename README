@@ -1,201 +1,43 @@
-<h3>Summary</h3>
+PACKAGE DESCRIPTION, COPYRIGHT, AND LICENSE
+-------------------------------------------
 
-<p>The lptools suite provides a complete, programming-language independent,
-literate programming environment.  The suite targets XML documentation,
-but the underlying system has no bias that would disadvantage other documentation 
-languages.  <i>(<a href="#lp">more...</a>)</i></p>
+This package is tapestry/tools.  It contains various tools developed initially
+for use in the Tapestry operating system project.  tapestry/tools is hosted
+at http://lptools.tigris.org, with links from http://tapestry-os.org.
 
-<p>Also included, and probably worth the price of admission on its own, is a 
-programmable build tool (a <i>make</i> replacement) that can handle very complex and 
-dynamic dependency graphs.  <i>(<a href="#build">more...</a>)</i></p>
-
-
-<h3>Status</h3>
-
-<p>All tools mentioned below are code complete and have had some testing.  We'll
-call it <i>beta</i> quality.  Also, all the important documentation is complete 
-and correct.</p>
-
-<p>Currently, the tools are likely to run on *NIX systems only.  Specifically,
-Windows directory delimiter support is untested and expected not to work.  This
-will be fixed when I receive one of two things: enough complaints; or working
-code.</p>
-
-<h4>Releases</h4>
-<p>The CVS source directory always has the best code (well, in theory).  Alteratively, 
-you can find a tarball of the most recent release (1.03b) in the 
-<a href="/servlets/ProjectDocumentList?folderID=614">file sharing section</a>.</p>
-
-<p>Examples are now available, also in the 
-<a href="/servlets/ProjectDocumentList?folderID=615">file sharing section</a>.</p>
-
-
-<h3><a name="lp"></a>Literate Programming</h3>
-
-<p>Literate programming is a style of programming, 
-<a href="http://www-cs-faculty.stanford.edu/~knuth/lp.html">invented by Knuth</a>,
-which targets human readers first, and the compiler second.  In literate code,
-the documentation is the important thing, and the code organization is subject to 
-it.  The literate programming tools then take on the responsibility
-of assembling compilable code and cross-referenced documentation from the sources.
-</p>
-
-<p>The lptools suite provides a complete literate programming environment.
-The tools are programming language independent.  Directives to the system are 
-designed to have minimal effect on readability.</p>
-
-<h4>Core tools</h4>
-
-<table cellspacing="2" cellpadding="1" border="0">
-
-<tr>
-  <td valign="top">lpcc</td>
-  <td>
-    <ul style="margin-top: 0;">
-     <li>assembles code fragments from lp source files into compilable code</li>
-     <li>provides macro substitution facilities</li>
-     <li>can be used to produce an lp source file from the assembled code</li>
-    </ul>
-  </td>
-</tr>
-
-
-<tr>
-  <td valign="top">lproots</td>
-  <td>
-    <ul style="margin-top: 0;">
-     <li>given an lp source, lists the names of all code blocks marked as a root</li>
-    </ul>
-  </td>
-</tr>
-
-
-<tr>
-  <td valign="top">lpblocks</td>
-  <td>
-    <ul style="margin-top: 0;">
-     <li>given an lp source, lists the names of all blocks it defines</li>
-    </ul>
-  </td>
-</tr>
-
-
-<tr>
-  <td valign="top">lpdeps</td>
-  <td>
-    <ul style="margin-top: 0;">
-     <li>given an lp source, lists all lp files it references</li>
-    </ul>
-  </td>
-</tr>
-
-
-<tr>
-  <td valign="top">lptags</td>
-  <td>
-    <ul style="margin-top: 0;">
-     <li>given an lp source, generates ctags for lp and (optionally) code symbols</li>
-    </ul>
-  </td>
-</tr>
-
-
-<tr>
-  <td valign="top">lphelp</td>
-  <td>
-    <ul style="margin-top: 0;">
-     <li>outputs a complete explanation of the lp system</li>
-    </ul>
-  </td>
-</tr>
-
-</table>
-
-
-<h4>Documentation languages</h4>
-
-<p>The suite ships with an XML documentation engine.  The engine aims to make
-it easy to mix XML documentation with plain code, by automating the quoting 
-of incidental XML special characters.  The engine converts embedded lp 
-directives to XML tags, and will also perform automated text markup.
-</p>
-
-<p>The XML engine does define a namespace and schema for its structures, but 
-you are free to use any XML schema in your documentation.</p>
-
-<table cellspacing="2" cellpadding="1" border="0">
-
-<tr>
-  <td valign="top">lpdoc</td>
-  <td>
-    <ul style="margin-top: 0;">
-     <li>assembles fully cross-referenced XML output from lp source files</li>
-     <li>appropriately converts lp directives to tags</li>
-     <li>applies automatic cross-reference directives</li>
-    </ul>
-  </td>
-</tr>
-
-</table>
+This package is Copyright 2002-2003 Chris Poirier (cpoirier@tapestry-os.org),
+and is licensed under the Open Software License, version 1.1.  You should find
+a copy of the license in the same directory as this README, in a file named
+LICENSE.  If you received a distribution without a copy of the Open Software 
+License, version 1.1, you may obtain one from http://www.opensource.org, or 
+directly from the author.
 
 
 
-<h3><a name="build"></a>Build System</h3>
+SYSTEM REQUIREMENTS 
+-------------------
 
-<p>Included with the suite is a programmable build tool.  Unlike <i>make</i>,
-<i>jam</i>, and others, the dependency graph is not declared directly.  Instead, 
-you supply programming fragments that the build system calls as necessary
-to determine what can be built, if it needs building, and how to go about
-building it.  This flexibility enables you to build even the most 
-dynamic and intricate source webs.</p>
+* Ruby 1.6.8 or better running on any *NIX system
 
-<p>The tool features a scheme-like syntax that avoids quoting file
-names in most intances, and an extensive library of builtin functions for
-handling everything from IO to wildcard processing.
-</p>
+* Windows is currently not supported, as the code does not correctly handle 
+  the Windows directory delimiter (\)
 
 
-<table cellspacing="2" cellpadding="1" border="0">
 
-<tr>
-  <td valign="top">build</td>
-  <td>
-    <ul style="margin-top: 0;">
-     <li>can build very dynamic and intricate source webs</li>
-     <li>arranges work into zones, which are loaded as declared, and which can be mutually dependent</li>
-     <li>uses a scheme-like syntax for its instruction files</li>
-     <li>includes a library of builtin functions, and the means to define your own</li>
-    </ul>
-  </td>
-</tr>
+UNIX INSTALLATION
+-----------------
 
-</table>
+Simply unpack this archive somewhere convenient, add its root directory to your
+path and the lib/ subdirectory to your RUBYLIB environment variable.  All 
+commands accept --help as a parameter.
 
 
-<h3>Project Information</h3>
 
-<p>The lptools suite aims to provide a complete, flexible literate programming 
-environment in which the computer assumes as much of the bookkeeping work
-as is possible.  
-</p>
+HELP, BUG REPORTING, UPDATES, ETC.
+----------------------------------
 
-<p>It aims to provide high functionality in three areas:</p>
-<ul>
-<li>Flexibility in language and platform support;</li>
-<li>Programmability for when needs change;</li>
-<li>Usability (because otherwise, what's the point?).</li>
-</ul>
-
-<p>The system is written in <a href="http://ruby-lang.org/">Ruby</a>.  The 
-reasons are simple.  First, writing Ruby is a joy!  If that isn't enough 
-reason, it seems likely that understandable, easily modified code will be 
-more appreciated than blazing performance.
-</p>
+In order to report bugs, request features, or obtain updates to the software,
+please visit http://lptools.tigris.org.  Eventually, the site will also have
+downloadable examples and other useful stuff.
 
 
-<h3>Related resources</h3>
-
-<p>The lptools suite is the programming environment written for the
-Tapestry operating system project.  See 
-<a href="http://tapestry-os.org">tapestry-os.org</a> for more details.
-</p>
