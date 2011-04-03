@@ -1,16 +1,31 @@
+HISTORY
+-------
+
+This is a literate programming environment I wrote back in 2002/2003.  I wrote
+it for a long abandonned O/S project I was mucking with, at the time.  The 
+code worked, when last run (a long time ago), but there was a bug with the 
+build tool and subprojects, as I recall.  I've moved the code here from 
+its original repository at lptools.tigris.org for the sake of consolidating
+my open source stuff, but please note I haven't touched this code in a very
+long time, and have no plans to touch it again.
+
+Still, the build tool was kind of neat. :-)
+
+
+
+CLEANED UP ORIGINAL README FILE FOLLOWS
+==============================================================================
+
+
 PACKAGE DESCRIPTION, COPYRIGHT, AND LICENSE
 -------------------------------------------
 
-This package is tapestry/tools.  It contains various tools developed initially
-for use in the Tapestry operating system project.  tapestry/tools is hosted
-at http://lptools.tigris.org, with links from http://tapestry-os.org.
-
-This package is Copyright 2002-2003 Chris Poirier (cpoirier@tapestry-os.org),
-and is licensed under the Open Software License, version 1.1.  You should find
-a copy of the license in the same directory as this README, in a file named
-LICENSE.  If you received a distribution without a copy of the Open Software 
-License, version 1.1, you may obtain one from http://www.opensource.org, or 
-directly from the author.
+This package is Copyright 2002-2003 Chris Poirier, and is licensed under the 
+Open Software License, version 1.1.  You should find a copy of the license 
+in the same directory as this README, in a file named LICENSE.  If you 
+received a distribution without a copy of the Open Software License, version 
+1.1, you may obtain one from http://www.opensource.org, or directly from the 
+author.
 
 
 
