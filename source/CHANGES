@@ -1,0 +1,66 @@
+1.03b
+-----
+Added build programming tutorial.  Oops.
+
+
+1.03 lp system
+--------------
+Ditched 3-level version numbers.
+
+Added lpblocks command that lists block names found in an lp file.
+
+@-transclude and @-include can now reference blocks, as well as whole files.
+
+lpcc no longer automatically comments transcluded blocks that differ in 
+language.  Instead, you now supply the comment marker directly in your code.
+This change has two effects:
+   * single line blocks can be transcluded inline intuitively
+   * the lpcc code no longer has to know the comment marker for your language
+My apologies to anyone who liked the old behaviour...
+Example:
+   //  {{a comment}}  //
+
+Fixed miscellaneous small bugs and improved error trapping.
+
+
+
+1.03 build
+----------
+
+Alternate target directories now actually work.
+
+Added (build-target), which can build targets during production rules.  This 
+allows the build system to be used to update caches of production information 
+without resorting to multiple passes. 
+
+Added (def-source) function that allows code to be run on a source node before
+it is run through the production engine.
+
+Fixed (def-zone) to load its environment from the parent zone, not the global
+environment, allowing data to be passed from one zone to another (on creation).
+
+Added (exists?) function to check for file existence.
+
+Added (pipe-out) function to send data to an external program.
+
+Added (wildcard-glob) function to get a list of matching filenames from the
+file system.
+
+Fixed miscellaneous small bugs and improved error trapping.
+
+
+
+1.0.2
+-----
+
+Added @-no-markup and @-cancel-markup directives to the lp tools.
+
+Added @-transclude directive and fixed @-include and @-inherit to consistently
+handle embedded paths.
+
+Fixed a bug in build that dropped second and later dependencies.
+
+Fixed miscellaneous other small bugs.
+
+
+

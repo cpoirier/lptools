@@ -1,0 +1,47 @@
+
+DESCRIPTION
+-----------
+
+This example, for the lptools suite (http://lptools.tigris.org), shows the
+basics of using the lp system and build.  It is licensed under the Open Software
+License, version 1.1.
+
+
+
+DETAILS
+-------
+
+hello-world.lp is an example of a lp source file, and two source files are
+generated from it (by way of lpcc):
+   * Buildfile
+   * hello-world.c
+
+The Buildfile included in this example is generated from hello-world.lp.  You
+would not typically do this in your systems, as Buildfile must be built before
+you can invoke build.  It is done this way here simply so the Buildfile code
+can be discussed in a literate style.
+
+Steps:
+   * read hello-world.lp, which describes the lp and build systmems in brief
+
+   * have a look at Buildfile
+
+   * run build to generate:
+      * hello-world.xml  (generated from hello-world.lp by lpdoc)
+      * Buildfile        (generated from hello-world.lp by lpcc )
+      * hello-world.c    (generated from hello-world.lp by lpcc )
+      * hello-world      (generated from hello-world.c  by gcc  )
+
+   * have a look at hello-world.xml
+
+   * have a look at hello-world.c
+
+   * optionally run hello-world (at your own risk!!!)
+
+
+
+LICENSE
+-------
+
+This example code is licensed under the Open Software License, version 1.1.
+

@@ -1,0 +1,299 @@
+#!/usr/bin/ruby
+#
+# tapestry/tools
+# lptags - generates a ctags file from lp files
+#        - tags will be generated for block names
+#        - tags will be generated for language identifiers
+#
+#
+# ------------------------------------------------------------------------
+#
+# Copyright Chris Poirier 2002-2003.  Contact cpoirier@tapestry-os.org.
+# Licensed under the Open Software License, version 1.1
+#
+# This program is licensed in the hope that it will be useful, but WITHOUT
+# ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
+# FITNESS FOR A PARTICULAR PURPOSE.  Use is ENTIRELY AT YOUR OWN RISK.
+#
+
+
+#------------------------------------------------------------------------------
+# Constants follow.  Jump to #CODE for the start of the code.
+
+PRODUCT_VERSION    = "1.03b"
+PRODUCT_NAME       = "tapestry/tools lptags"
+PRODUCT_COPYRIGHT  = "Copyright 2002-2003 Chris Poirier (cpoirier@tapestry-os.org)" 
+PRODUCT_DESCRIPTOR = "#{PRODUCT_NAME} #{PRODUCT_VERSION}"
+PRODUCT_LICENSE    = "Licensed under the Open Software License, version 1.1"
+
+
+USAGEHELP = <<END_USAGE
+
+  Generates ctags for lp source files (type 'lphelp' for      
+  information on the lp system).  Tags will be generated for  
+  block names and code identifiers in supported languages.    
+                                                              
+Usage: lptags [options] [file(s)]                             
+                                                              
+  --help                                                  
+       Displays this usage information.                       
+                                                              
+  --recursive-read                                       
+       Create tags for files recursively, but generate only   
+       one tag file, in the current directory.                
+                                                              
+  --recursive-write                                       
+       Create tags for files recursively, generating a tag    
+       file in each directory.                                
+                                                              
+  --ctags-options-<language>=options                          
+       The supplied options will be passed on to ctags when   
+       processing code in the specified language.             
+                                                              
+  --append                                                    
+       Unless this option is specified, any existing tag file 
+       will be deleted before new tags are generated.         
+
+  --disable-identifiers
+       If provided, only block names will be indexed.
+                                                              
+  --force
+       If present, the *.lp* requirement for file names is 
+       discarded.  Be careful using this flag with directory
+       recursion, as all files in recursed directories will
+       be processed.
+
+END_USAGE
+
+
+
+CTAGSforLP   = "ctags --append=yes --line-directives=yes --langdef=lp '--regex-lp=/\\{\\{(.*)\\}\\}/\\1/b,block/' --language-force=lp --excmd=n "
+CTAGSforCODE = "ctags --append=yes --line-directives=yes --excmd=n " 
+
+
+
+
+
+#------------------------------------------------------------------------------
+# START OF #CODE
+
+
+begin
+
+   require 'tapestry-unpackaged/language-extensions.rb'
+   require 'tapestry-unpackaged/lp/Output.rb'
+   require 'tapestry-unpackaged/lp/handle.rb'
+   require 'tapestry-unpackaged/lp/constants.rb'
+
+   require 'tapestry-packaged/CommandLineParser.rb'
+   require 'tapestry-packaged/FilesProcessor.rb'
+   require 'tapestry-packaged/lp/LPFile.rb'
+
+   require 'tempfile'
+
+
+
+ #-----------------------------------------------------------------------------
+ # Start by parsing the command line options and printing help, if appropriate.
+
+
+   parameters = Tapestry::CommandLineParser.new()
+   flags      = parameters.flags
+   files      = parameters.files
+
+   if flags.member?("help") or files.empty? then
+      Output.puts( PRODUCT_DESCRIPTOR )
+      Output.skip()
+      Output.puts( PRODUCT_COPYRIGHT  )
+      Output.puts( PRODUCT_LICENSE    )
+      Output.skip()
+      puts USAGEHELP
+      exit
+   end
+
+
+
+ #-----------------------------------------------------------------------------
+ # Process the supplied flags.
+
+   options = {}
+
+   options["recurse"]               = false
+   options["tag-in-each-directory"] = false
+   
+   if flags.member?("recursive-write") then
+      options["recurse"]               = true
+      options["tag-in-each-directory"] = true
+   
+   elsif flags.member?("recursive-read") then
+      options["recurse"]               = true
+      options["tag-in-each-directory"] = false
+   end
+   
+   options["append"]              = flags.member?("append")              ? true : false
+   options["disable-identifiers"] = flags.member?("disable-identifiers") ? true : false
+
+
+
+
+ #-----------------------------------------------------------------------------
+ # This function is used by the processing engine to create an index of an  
+ # lp file and then process it with ctags.  You supply a block to write out the
+ # index, given the output file handle and the lpfile object.
+
+   def index( lpfile, ctags, flags )
+
+      output = nil
+      begin
+         output = Tempfile.new( File.basename(lpfile.absolute) )
+         break if yield( output, lpfile ).nil?
+         output.close
+
+         command = ctags + " " + output.path
+         Output.puts( command, 6 ) if flags.member?("debug")
+
+         system( command ) or raise Tapestry::Error( "index error", { "details", "ctags failed", "location", lpfile.absolute } ) 
+      ensure
+         output.close(true) unless output.nil?
+      end
+
+   end
+
+
+
+ #-----------------------------------------------------------------------------
+ # Create the procs for use by the FilesProcessor.
+
+   #
+   # onFile has ctags index each file, by generating stripped versions for 
+   # each language.
+
+   onFile = proc do |path|
+
+      Output.puts( path + ":" )
+      absolute = File.expand_path( path )
+
+   
+      #
+      # Load the lp file
+   
+      Output.puts( "parsing lp file", 3 )
+      lpfile = Tapestry::LP::LPFile.produce( absolute )
+
+
+      #
+      # Generate a file containing the block names, and index
+      # it with ctags.
+   
+      Output.puts( "generating tags for block names", 3 )
+      index( lpfile, CTAGSforLP, flags ) do |output, lpfile|
+         lpfile.each_named do |block|
+            unless block.empty?
+               token = block.getFirstLine()
+               output << Tapestry::LP::Patterns.makeLineDirective( token.line, token.file ) + "\n"
+               output << "{{" + block.name + "}}\n"
+            end
+         end
+      end 
+   
+   
+      next if options["disable-identifiers"]
+   
+   
+      #
+      # Get the languages in use in the file.  Then dump the data,
+      # one language at a time, with line directives that reference the
+      # lp file, and have ctags index it.
+      
+      lpfile.languages.each do |language|
+   
+         Output.puts( "generating #{language} tags from lp", 3 )
+         command = CTAGSforCODE + "--language-force=" + language + " "
+   
+         options = "ctags-options-" + language
+         command += flags[options] + " " if flags.member?(options) 
+   
+         index( lpfile, command, flags ) do |output, lpfile| 
+            lpfile.each_named do |block|
+               if block.language == language then
+                  block.strip( output, true )
+               end
+            end
+         end
+
+      end
+   end
+   
+
+   #
+   # Truncates the local ctags file before anything is generated, if
+   # required.
+
+   onDirectoryEntry = proc do |path|
+      Output.skip()
+      Output.puts( "Generating tags in: " + path )
+   
+      tagfilename = File.normalize_path(path) + "tags"
+      if File.exists?(tagfilename) and not options["append"] then
+         File.delete(tagfilename)
+      end
+   end
+
+
+   #
+   # Just informs the user when the directory is processed.
+
+   onDirectoryExit = proc do |path|
+      Output.puts( "Finished tags in: " + path )
+      Output.skip()
+   end
+
+
+   #
+   # Handles files that do not end in .lp
+
+   onUnrecognized = proc do |filepath|
+      Output.puts( filepath + ": not an lp file", 0, STDERR )
+   end
+
+
+   #
+   # Handles specified files that do not exist
+
+   onMissing = proc do |filepath|
+      Output.puts( filepath + ": does not exist", 0, STDERR );
+   end
+
+
+
+ #-----------------------------------------------------------------------------
+ # RUN
+
+   pattern   = ( flags.member?("force") ? // : LPFILEPATTERN )
+   processor = Tapestry::FilesProcessor.new( pattern, options["recurse"], options["tag-in-each-directory"], onFile, onDirectoryEntry, onDirectoryExit, onUnrecognized, onMissing )
+
+   processor.processFiles( files )
+
+
+
+#------------------------------------------------------------------------------
+
+rescue LoadError => error
+   STDERR.puts( ">>> Unable to load code libraries." )
+   STDERR.puts( ">>> Perhaps the library path has not been added to RUBYLIB?" )
+   STDERR.puts( ">>> Details: #{error.message}" )
+
+   exit 2
+
+rescue Exception => error
+   raise unless method(:handle)
+   exit handle( error, flags ).to_i
+end
+
+
+exit 0
+
+
+
+
+

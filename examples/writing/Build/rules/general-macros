@@ -1,0 +1,43 @@
+(-- -----------------------------------------------------------------------------------------------)
+(-- Useful macros for cleaning                                                                     )
+
+(def-macro do-clean-intermediates 
+   (do
+      (each $file (diff (get-alias @all-targets) (get-alias @end-targets)) 
+         (delete $file))
+      (true)
+   )
+)
+
+(def-alias cleani (l do-clean-intermediates */cleani))
+
+(def-macro do-clean-all
+   (do
+      (each $file (get-alias @all-targets) 
+         (delete $file))
+      (true)
+   )
+)
+
+(def-alias clean-all (l do-clean-all */clean-all))
+
+(def-macro do-clean-except-roots
+   (do
+      (each $file (get-alias @all-targets)
+         (if (wildcard $file *.roots) (do) (delete $file)))
+      (true)
+   )
+)
+
+(def-alias clean (l do-clean-except-roots */clean))
+
+(def-macro do-clean-html
+   (do
+      (each $file (get-alias @all-targets)
+         (if (wildcard $file *.html) (delete $file)))
+      (true)
+   )
+)
+
+(def-alias clean-html (l do-clean-html */clean-html))
+

@@ -1,0 +1,8 @@
+(if (eq? $WRITING_ROOT (nil)) (abort "Please set the WRITING_ROOT environment variable!"))
+
+(set $lpsources (' a-short-story.lp))
+(set $zones     (' a-longer-story))
+(set $top       (true))
+
+(include do $WRITING_ROOT/Build/rules/standard-driver)
+

@@ -1,0 +1,43 @@
+PACKAGE DESCRIPTION, COPYRIGHT, AND LICENSE
+-------------------------------------------
+
+This package is tapestry/tools.  It contains various tools developed initially
+for use in the Tapestry operating system project.  tapestry/tools is hosted
+at http://lptools.tigris.org, with links from http://tapestry-os.org.
+
+This package is Copyright 2002-2003 Chris Poirier (cpoirier@tapestry-os.org),
+and is licensed under the Open Software License, version 1.1.  You should find
+a copy of the license in the same directory as this README, in a file named
+LICENSE.  If you received a distribution without a copy of the Open Software 
+License, version 1.1, you may obtain one from http://www.opensource.org, or 
+directly from the author.
+
+
+
+SYSTEM REQUIREMENTS 
+-------------------
+
+* Ruby 1.6.8 or better running on any *NIX system
+
+* Windows is currently not supported, as the code does not correctly handle 
+  the Windows directory delimiter (\)
+
+
+
+UNIX INSTALLATION
+-----------------
+
+Simply unpack this archive somewhere convenient, add its root directory to your
+path and the lib/ subdirectory to your RUBYLIB environment variable.  All 
+commands accept --help as a parameter.
+
+
+
+HELP, BUG REPORTING, UPDATES, ETC.
+----------------------------------
+
+In order to report bugs, request features, or obtain updates to the software,
+please visit http://lptools.tigris.org.  Eventually, the site will also have
+downloadable examples and other useful stuff.
+
+

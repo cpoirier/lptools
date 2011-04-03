@@ -1,0 +1,35 @@
+(-- -----------------------------------------------------------------------------------------------)
+(-- Generates documentation from lp files.                                                         )
+
+(def-alias xml (l */xml))
+(def-production  lpdoc 0 *.lp *.xml
+  (do
+     (if (attribute? $source alt-style) 
+         (set-attribute $target alt-style (get-attribute $source alt-style))
+     )
+     (add-to-alias xml $target)
+   )
+)
+(def-action each lpdoc (system lpdoc --output=$target $source)) 
+
+
+
+
+(-- -----------------------------------------------------------------------------------------------)
+(-- Rule for generating HTML from the XML lpdocs                                                   )
+
+(def-alias html (l */html))
+(def-production xml-html 0 *.xml *.html 
+   (do 
+       (set $base (if (attribute? $source alt-style) (get-attribute $source alt-style) writing))
+       (set $stylesheet ${WRITING_ROOT}/Build/xsl/${base}.xsl)
+       (add-component $target $stylesheet)
+       (set-attribute $target STYLESHEET $stylesheet)
+       (add-to-alias html $target)
+   )
+   xslt
+)
+
+(def-action each xslt (system sabcmd (get-attribute $target-logical STYLESHEET) $source $target))
+
+

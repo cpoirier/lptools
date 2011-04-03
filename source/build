@@ -1,0 +1,593 @@
+#!/usr/bin/ruby
+#
+# tapestry/tools
+# build - yet another make replacement
+#
+# ------------------------------------------------------------------------
+#
+# Copyright Chris Poirier 2003.  Contact cpoirier@tapestry-os.org.
+# Licensed under the Open Software License, version 1.1
+#
+# This program is licensed in the hope that it will be useful, but WITHOUT
+# ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
+# FITNESS FOR A PARTICULAR PURPOSE.  Use is ENTIRELY AT YOUR OWN RISK.
+#
+
+#------------------------------------------------------------------------------
+# Constants follow.  Jump to #CODE for the start of the code.
+
+
+PRODUCT_VERSION    = "1.03b"
+PRODUCT_NAME       = "tapestry/tools build"
+PRODUCT_COPYRIGHT  = "Copyright 2002-2003 Chris Poirier (cpoirier@tapestry-os.org)" 
+PRODUCT_DESCRIPTOR = "#{PRODUCT_NAME} #{PRODUCT_VERSION}"
+PRODUCT_LICENSE    = "Licensed under the Open Software License, version 1.1"
+
+puts( ">>> " + PRODUCT_DESCRIPTOR )
+puts(                             )
+puts( ">>> " + PRODUCT_COPYRIGHT  )
+puts( ">>> " + PRODUCT_LICENSE    )
+puts(                             )
+
+
+USAGEHELP = <<END_USAGE
+
+  A make replacement that provides programmable discovery of 
+the build graph and inter-file dependencies.  
+
+Usage: build [options] [targets]
+
+  --help
+       Displays this usage information.
+
+  --help-introduction
+       Displays an introduction to the build system.
+
+  --help-programming
+       Displays an introduction to the build system's
+       programming language.
+
+  --help-functions, --help-functions=file
+       Displays the list of available programming language
+       functions.  If file is supplied, that file will be
+       processed (without actually running any productions),
+       and --help-function will be able to search its 
+       functions, too.
+
+  --help-function=name
+       Displays the help for the named function.
+
+  --verbosity=x
+       Controls how much output the system generates:
+          0 - very little
+          1 - the default, just enough
+          2 - more details
+          3 - first step for debugging broken rules
+          4 - second step for debugging broken rules
+          5 - if its available, 5 gets it
+
+  --tolerance=x
+       Controls how many targets can fail during build 
+       before build gives up.  The default is 10.
+
+  --no-build
+       Loads the zones and creates the build graph, but
+       runs not actions or analyzers.
+
+  --set-<variable>=<value>
+       Sets the named variable and value into the build
+       environment.  From there it will be imported into the
+       global scope of each zone.
+
+  --buildfile=<name>
+       Allows you to specify an alternate name for the
+       Buildfile.  You can include a path.
+
+  --target-directory=<path>
+       Allows you to specify the root zone's target 
+       directory.
+
+END_USAGE
+
+
+
+
+INTRODUCTIONHELP = <<END_INTRODUCTION
+  A make replacement that provides programmable discovery of 
+the build graph and inter-file dependencies.  
+
+                       INTRODUCTION
+
+  Build reads its instructions from a Buildfile in the 
+current or a parent directory.  These instructions tell the
+build system how to go about discovering and performing its
+work within the current zone, and include production rules,
+analyzers, actions, source declarations, references to other
+zones, and various programming glue.
+
+  Unlike other such systems, build does not natively know 
+how to build anything.  Instead, it provides the mechanisms
+to construct and process a build graph, and leaves the 
+details of how each step is actually performed to the user,
+via a (primarily) declarative programming interface.  All
+such instructions must be supplied directly in the 
+Buildfile, or included from external libraries.
+
+
+                           ZONES
+
+  The build system arranges its work into zones.  Each zone
+covers sources in a particular directory and any of its
+subdirectories that do not hold other zones.  Targets 
+created by a zone are output to the root of its target 
+directory.  Unless otherwise specified, the target directory
+is the zone's home directory.
+
+  If you inform the build system about the existence of
+other zones, they will be loaded during startup, and will be
+processed as necessary during the build process.  Each zone
+has its own Buildfile, and therefore its own rules and 
+machinery.  It is therefore necessary that each Buildfile be
+complete and independent.  See (def-zone) for full details.
+
+
+                          EXAMPLE
+
+  The following example shows a complete buildfile for 
+building an executable named "program" from several c 
+sources.  Your Buildfiles would typically include most of 
+these instructions from a library.
+
+---8<-------------------------------------------------------
+(def-production cc   0 *.c *.o)
+(def-production link 0 *.o program)
+
+(def-analyzer c-headers *.h (system headerscan $source))
+(def-analyzer c-headers *.c (system headerscan $source))
+
+(def-action each cc   (system gcc -c $source -o $target))
+(def-action all  link (system gcc -o $target $sources))
+
+(def-sources source1.c source2.c)
+
+(def-alias all program)
+
+(def-macro clean (system rm program *.o))
+
+------------------------------------------------------->8---
+
+  Production rules tell the system what files can be built
+from particular sources.  The production rules above use the
+simplest form, which simply associates an action with a 
+change of file extension.  Production rules are always run
+on all defined sources when they are defined.  Files added 
+to the system as a result are themselves processed by the
+production engine.  See (def-production) for full details.
+
+  Analyzers tell the system about references within a file
+that affect the freshness of it's targets.  The analyzers 
+defined above scan c source and header files for header 
+files (using an external program called headerscan).  Files 
+added to the system this way are themselves subject to 
+analyzers.  Analyzers are run only as relevant to the 
+targets actually being built.  See (def-analyzer) for full 
+details.
+
+  Actions are used to actually build a target from one or
+more sources.  The production rules are responsible for 
+associating each source-target relationship with an action,
+and the system will decide which actions actually need to
+be run to bring the build graph up to date.  See 
+(def-action) for full details.
+
+  Sources are the existing files from which all targets are
+built.  As mentioned above, production rules are run on 
+each source as they are defined, and the result is a graph 
+of all buildable targets.  This graph is then filled in 
+with additional information supplied by analyzers, and
+then brought up to date by actions.  See (def-sources) for
+more information on declaring sources.
+
+  Aliases allow you to assign a single name to one or more 
+targets.  Users can then invoke the building of all those
+targets using your alias.  See (def-alias) for full details.
+
+  Macros are essentially a 0 argument function which can
+be addressed as a target.  Macros can be named in aliases
+or invoked at the command line.  See (def-macro) for full
+details.
+
+END_INTRODUCTION
+
+
+
+PROGRAMMINGHELP = <<END_PROGRAMMING
+                          BASICS
+
+  Build views its input as a series of two types of tokens:
+vectors and scalars.  Each vector is a series of scalars 
+surrounded by a pair of parentheses [()].  Each scalar is 
+series of characters, delineated by whitespace or double 
+quotes [""].  For instance:
+  (this is a vector of 7 scalars)
+  (this is a vector (containing a vector))
+  ("this is a vector" "containing two scalars")
+
+  The build interpreter requires function calls to be 
+supplied to it as a vector containing at least one scalar.
+That first scalar is used to lookup and call a function, and
+the rest of the vector is passed [as a vector] to the 
+function handler as its parameter list.  
+
+  Every Buildfile is treated as if wrapped in a call to 
+(do), which means that all top-level tokens in a Buildfile 
+will be passed as the parameters to a single (do), and so
+must conform to its parameter list requirements [see 
+build --help-function=do].
+
+
+                       DATA HANDLING
+
+  The basic job of the build interpreter is to interpret the 
+tree of vectors and scalars handed to it by the Buildfile.
+The interpreter does this work only when processing a 
+function call.  That is the reason the entire Buildfile is
+treated as if wrapped in a call to (do).
+
+  A function specifies, as part of its definition, how each 
+of its parameter tokens should be interpreted, and the 
+interpreter performs the requested processing when moving 
+the supplied parameters into the called function's parameter
+variables.
+
+  For instance, one of the forms of the (do) function, 
+mentioned above, requests that the interpreter provide it 
+with the results of interpreting each of its parameters as a 
+function call.  When using this form, the interpreter will 
+complain if any of the supplied parameters isn't a valid 
+function call.  (do) returns the interpreted value of its 
+last parameter.
+
+  The function call is one of the most important meanings 
+that can be applied to a vector.  One of the most important
+meanings that can be applied to a scalar is that of variable
+name.  If a scalar starts with a dollar sign [$], it can be 
+interpreted as a variable name.  When such processing is 
+requested, the interpreter returns the value of the named
+variable by looking it up in the local and/or global scope.
+
+  See (def) and (set) for details on variables.
+
+  Variable names can be embedded in other scalars.  When
+performing a request to interpret such scalars in light of
+the embedded variables, the interpreter will replace the
+variable name with its value.  If the variable's value is a 
+vector, the result will also be a vector, with one scalar 
+for each combination.  For example:
+  * if $var holds "value", then
+       my$var
+    will reduce to
+       myvalue
+
+  * if $var holds (a vector), then
+       a-${var}-something 
+    will reduce to
+       (a-a-something a-vector-something)
+
+  * if $var holds the empty list, then
+       --root=$var 
+    will reduce to the empty list
+
+  See (expand) for details on how variable expansion is
+handled [but keep in mind that (expand) is only used to 
+force variable expansion when the called function doesn't].
+
+  See (def-function) for a full list of the processing the 
+build interpreter can apply to parameters.
+
+
+                     INITIAL ENVIRONMENT
+
+  Each Buildfile covers a single zone [see 
+build --help-introduction].  The first zone that is loaded
+has its global variable scope loaded from the command line
+environment variables.  Each zone loaded thereafter has its
+global variable scope loaded from the calling zone's global
+variable scope.  Keep in mind, however, that each zone has
+its own global variable scope, so, after the initial load,
+changes to one will not affect the others.
+
+
+                      USEFUL FUNCTIONS
+
+  You can obtain a full list of functions supported by the
+build interpreter by typing [build --help-functions].  
+However, the list is alphabetical.  What follows here is a
+categorized list of the core functions.  See 
+[build --help-introduction] for more details on the build
+system primitives.  See [build --help-function=<name>] for 
+help on a specific function.
+
+Mainline functions:
+  (do)            - interprets its params, returns the last
+  (collect), (l)  - interprets its params, returns the set
+  (return)        - interprets its param, returns it
+  (include)       - processes instructions from another file
+  (abort)         - aborts the program
+  (if)            - branches on a value
+  (def-function)  - defines a new function
+
+Variable functions:
+  (def)           - defines a variable
+  (set)           - sets a variable
+  (q), (')        - returns its params without interpretation
+  (expand)        - expands embedded variable references
+  (def-global)    - defines a variable
+  (set-global)    - sets a variable
+  (scalar)        - converts a value to a scalar
+  (vector)        - converts a value to a vector
+  (boolean)       - converts a value to a boolean (scalar)
+  (integer)       - converts a value to an integer (scalar)
+
+Logical functions:
+  (and)           - returns the logical and of two values
+  (or)            - returns the logical or of two values
+  (not)           - returns the logical not of two values
+  (xor)           - returns the logical xor of two values
+  (eq?)           - compares for equality
+  (gt?)           - compares for greater than
+  (lt?)           - compares for less than
+  (scalar?)       - tests a value's scalar-hood
+  (vector?)       - tests a value's vector-hood
+
+Vector iteration functions:
+  (each)          - iterates a vector, returns last result
+  (map)           - iterates a vector, returns all results
+  (select)        - iterates a vector, returns selected
+
+Vector manipulation functions:
+  (flatten)       - flattens a multi-level vector
+  (merge)         - makes a vector from two values
+  (diff)          - takes the difference of two vectors
+  (join)          - joins a vector into a scalar
+  (at)            - obtains a member of a vector
+  (reverse)       - reverses a vector
+  (member?)       - tests a vector for a value
+
+Pattern matching functions:
+  (regex)         - regex search/replace
+  (wildcard)      - wildcard search/replace
+  (wildcard-glob) - wildcard file selection
+  (wildcard-splice) - special wildcard replace
+
+Constant functions:
+  (nil)           - the empty string
+  (empty)         - the empty vector
+  (true)          - boolean scalar true
+  (false)         - boolean scalar false
+  (newline)       - the newline character
+  (space)         - the space character
+  (tab)           - the tab character
+
+I/O functions:
+  (echo)          - prints out its parameters
+  (print)         - prints out its parameters
+  (system)        - executes a system command
+  (read)          - reads lines from a file
+  (write)         - writes lines to a file
+  (pipe-in)       - reads lines from a system command
+  (pipe-out)      - writes lines to a system command
+  (delete)        - deletes a file
+  (touch)         - touches a file
+  (exists?)       - tests for a file's existence
+
+Build primitives:
+  (def-production)- defines a production rule
+  (def-action)    - defines a build action
+  (def-analyzer)  - defines an analyzer rule
+  (def-sources)   - defines several sources
+  (def-source)    - defines a single source with processing
+  (def-macro)     - defines a macro target
+  (def-alias)     - defines an alias target
+
+Build support:
+  (get-alias)     - gets an alias as a vector of targets
+  (set-attribute) - sets an attribute on a target node
+  (get-attribute) - gets an attribute from a target node
+  (sources-of)    - gets the known sources for a target node
+  (target?)       - tests a node for target-hood
+  (targets-by)    - gets a node's targets by action
+  (targets-of)    - gets a node's targets
+  (add-component) - adds a component to a target node
+  (build-target)  - forces the immediate build of a target 
+  (set-production-ordering) - sets production rule order
+
+END_PROGRAMMING
+
+
+
+
+
+
+#------------------------------------------------------------------------------
+# START OF #CODE 
+
+
+begin 
+
+   require 'tapestry-unpackaged/language-extensions.rb'
+   require 'tapestry-unpackaged/build/handle.rb'
+
+   require 'tapestry-packaged/CommandLineParser.rb'
+   require 'tapestry-packaged/Error.rb'
+   require 'tapestry-packaged/ErrorSet.rb'
+   require 'tapestry-packaged/build/System.rb'
+
+   BuildSystem = Tapestry::Build::System
+
+
+ #-----------------------------------------------------------------------------
+ # Start by parsing the command line options and printing help, if appropriate.
+
+   parameters = Tapestry::CommandLineParser.new("")
+   flags      = parameters.flags
+
+   if flags.member?("help") then
+      puts USAGEHELP 
+      exit
+
+   elsif flags.member?("help-introduction") then
+      puts INTRODUCTIONHELP 
+      exit
+
+   elsif flags.member?("help-programming") then
+      puts PROGRAMMINGHELP 
+      exit
+
+   end
+
+
+
+ #-----------------------------------------------------------------------------
+ # Next, handle requests for function help.
+
+   if flags.member?("help-functions") or flags.member?("help-function") then
+
+      #
+      # First, ask the build system to prepare help for us, passing an user
+      # code request for processing.
+
+      BuildSystem.prepareHelp( flags["help-functions"] )
+
+
+      #
+      # We then print out a list of all functions, if requested.  Because
+      # --help-functions does double duty, we skip the list if it was used
+      # to supply user code and the user included a --help-function tag.
+
+      displayList = flags.member?("help-functions")
+      displayList = false if flags.member?("help-function") and flags["help-functions"] != ""
+
+      if displayList then
+         BuildSystem.puts( "Available functions:" )
+         BuildSystem.functors.keys.sort.each do |name|
+            puts( "   " + name )
+         end
+      end
+
+
+      #
+      # Finally, we output the help for a specific function, if requested.
+
+      if flags.member?("help-function") then
+         BuildSystem.skip(2) if displayList
+
+         named = flags["help-function"]
+         if BuildSystem.functors.member?(named) then
+            functor = BuildSystem.functors[named]
+            BuildSystem.puts( "Help for: " + named )
+            puts functor.getUsage(named)
+
+         else
+            BuildSystem.puts( "Function not defined: " + named )
+         end
+      end
+
+      exit
+
+   end
+
+
+
+ #-----------------------------------------------------------------------------
+ # Handle any general flags
+
+   BuildSystem.verbosity = flags["verbosity"].to_i if flags.member?("verbosity")
+   BuildSystem.tolerance = flags["tolerance"].to_i if flags.member?("tolerance")
+   BuildSystem.loadOnly  = true if flags.member?("no-build")
+
+   flags.each_pair do |flag, value|
+      if flag =~ /\Aset-(.*)\Z/ then
+         ENV[$1] = value.to_s
+      end
+   end
+
+
+
+ #-----------------------------------------------------------------------------
+ # Next, locate the buildfile and zone
+
+   buildfile     = ( flags.member?("buildfile") ? flags["buildfile"] : "Buildfile" )
+   homeDirectory = Dir.pwd()
+
+   begin
+
+      #
+      # If a buildfile is specified with a path, we use it for the current zone,
+      # providing it exists.
+
+      if buildfile != File.basename(buildfile) then
+         unless File.exists?( buildfile ) 
+            raise Tapestry::Error( "location error", { "details", "unable to find Buildfile", "location", buildfile } )
+         end
+
+
+      #
+      # Otherwise, the Buildfile must be in the current directory or one of its parents.
+
+      else
+         currentDirectory = Dir.pwd()
+
+         begin
+            until File.exists?( buildfile )
+               Dir.chdir("..")
+               break if Dir.pwd() == homeDirectory
+               homeDirectory = Dir.pwd()
+            end
+         
+            raise unless File.exists?(buildfile)
+         ensure
+            Dir.chdir( currentDirectory )
+         end
+      end
+
+   rescue SystemCallError, RuntimeError => error
+      raise Tapestry::Error( "location error", { "details", "unable to find root of zone" } )
+
+   end
+   
+   homeDirectory   = Dir.normalize_path( homeDirectory )
+   targetDirectory = ( flags.member?("target-directory") ? Dir.normalize_path(flags["target-directory"]) : homeDirectory )
+
+
+
+ #-----------------------------------------------------------------------------
+ # With all the data in hand, get the system up and running.
+
+   targets = parameters.files.map do |target|
+      target = File.normalize_path(target)
+   end
+
+   BuildSystem.run( targets, buildfile, homeDirectory, targetDirectory )
+
+
+
+
+
+#------------------------------------------------------------------------------
+
+rescue LoadError => error
+   STDERR.puts( ">>> Unable to load code libraries." )
+   STDERR.puts( ">>> Perhaps the library path has not been added to RUBYLIB?" )
+   STDERR.puts( ">>> Details: #{error.message}" )
+
+   exit 2
+
+rescue Exception => error
+   raise unless method(:handle)
+   exit handle( error, flags ).to_i
+end
+
+
+exit 0
+

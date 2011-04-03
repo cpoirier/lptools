@@ -1,0 +1,24 @@
+(-- ---------------------------------------------------------------------------------------------------------)
+(-- This file provides the machinery that is used by most of the writing zones.  All the individual          )
+(-- Buildfile need do is set up $lpsources, $zones, $top, and $style and include this file.                  )
+
+(if $top (do) (def-zone ../ ../))
+
+(include do $WRITING_ROOT/Build/rules/functions)
+(include do $WRITING_ROOT/Build/rules/general-productions)
+
+(if (not (eq? $style (nil)))
+    (each $source $lpsources 
+       (if (not (attribute? $source alt-style))
+           (set-attribute $source alt-style $style)
+       )
+    )
+)
+
+(def-sources $lpsources)
+(each $zone $zones (def-zone $zone $zone))
+
+(include do $WRITING_ROOT/Build/rules/general-analyzers)
+(include do $WRITING_ROOT/Build/rules/general-macros)
+
+

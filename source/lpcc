@@ -1,0 +1,359 @@
+#!/usr/bin/ruby
+#
+# tapestry/tools
+# lpcc - generates code files from lp files
+#
+# ------------------------------------------------------------------------
+#
+# Copyright Chris Poirier 2002-2003.  Contact cpoirier@tapestry-os.org.
+# Licensed under the Open Software License, version 1.1
+#
+# This program is licensed in the hope that it will be useful, but WITHOUT
+# ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
+# FITNESS FOR A PARTICULAR PURPOSE.  Use is ENTIRELY AT YOUR OWN RISK.
+#
+
+#------------------------------------------------------------------------------
+# Constants follow.  Jump to #CODE for the start of the code.
+
+PRODUCT_VERSION    = "1.03b"
+PRODUCT_NAME       = "tapestry/tools lpcc"
+PRODUCT_COPYRIGHT  = "Copyright 2002-2003 Chris Poirier (cpoirier@tapestry-os.org)" 
+PRODUCT_DESCRIPTOR = "#{PRODUCT_NAME} #{PRODUCT_VERSION}"
+PRODUCT_LICENSE    = "Licensed under the Open Software License, version 1.1"
+
+
+
+USAGEHELP = <<END_USAGE
+
+  Generates code files from lp source files (type 'lphelp'
+  for information on the lp system).  
+                                                              
+Usage: lpcc [options] [file(s)]                             
+                                                              
+  --help                                                  
+       Displays this usage information.                       
+                                                              
+  --comment-marker-<language>=marker
+       The supplied marker is used as the comment marker for
+       the named language.                       
+
+  --root=x
+       Causes the specified block to be compiled, producing
+       an output files with that name.  Ignored if there is
+       more than one file in the file list.  
+
+  --with-maximum-nesting=x
+       Overrides the nesting limit for blocks.  The default
+       is 20, meaning that the block you are compiling can
+       reference a block that references another block that
+       references... to a maximum depth of 20.  There is
+       maximum depth because it is a cheap way to catch
+       circular references (block 1 references block 2 that
+       references block 3 that references block 1, for 
+       instance).   
+      
+  --disable-line-directives
+       Normally, line directives are included in the output.
+       This option allows you to exclude them.
+
+  --output=path
+       Only valid is supplied with --root: specifies the
+       output file name to use, and can include a path.
+
+  --to-lp
+       Instead of outputting a compileable, lpcc will instead
+       create an lp file containing the compiled root.  Line
+       directives will not be included.  File level sets
+       will specify the root and source lp names.  If no
+       output name is specified, the output will have .lp
+       appended to the root name.
+
+  --macro-<name>=<value>
+       Finds any occurrence of $$name$$ in the compiled text
+       and replaces it with value.  Unless you specify --macro,
+       unvalued macros are removed.  Has no effect if --to-lp.
+
+  --macro=<default>
+       Specifies a default value for unvalued macros found in
+       the code.
+
+  --no-macro-environment
+       If not present, environment variables are automatically
+       available for macro substitution. 
+
+  --no-macros
+       If present, macros in code are left untouched.
+
+  --force
+       If present, the *.lp* requirement for file names is 
+       discarded.  
+
+END_USAGE
+
+
+
+
+
+
+
+#------------------------------------------------------------------------------
+# START OF #CODE
+
+
+begin
+
+   require 'tapestry-unpackaged/language-extensions.rb'
+   require 'tapestry-unpackaged/lp/Output.rb'
+   require 'tapestry-unpackaged/lp/handle.rb'
+   require 'tapestry-unpackaged/lp/constants.rb'
+
+   require 'tapestry-packaged/CommandLineParser.rb'
+   require 'tapestry-packaged/FilesProcessor.rb'
+   require 'tapestry-packaged/lp/Patterns.rb'
+   require 'tapestry-packaged/lp/LPFile.rb'
+
+
+ #-----------------------------------------------------------------------------
+ # Start by parsing the command line options and printing help, if appropriate.
+
+
+   parameters = Tapestry::CommandLineParser.new()
+   flags      = parameters.flags
+   files      = parameters.files
+
+   if flags.member?("help") or files.empty? then
+      Output.puts( PRODUCT_DESCRIPTOR )
+      Output.skip()
+      Output.puts( PRODUCT_COPYRIGHT  )
+      Output.puts( PRODUCT_LICENSE    )
+      Output.skip()
+      puts USAGEHELP
+      exit
+   end
+
+
+
+ #-----------------------------------------------------------------------------
+ # Process the supplied flags.
+
+   options = Hash.new()
+
+   options["nesting-depth"] = 20
+   options["nesting-depth"] = flags["with-maximum-nesting"].to_i if flags.member?("with-maximum-nesting") and flags["with-maximum-nesting"] =~ /\A\d*\Z/
+   
+   options["include-line-directives"] = true
+   options["include-line-directives"] = false if flags.member?("disable-line-directives")
+   
+   flags.keys.each do |flag|
+      if flag =~ /comment-marker-(.*)/ then
+         Tapestry::LP::Patterns.setCommentMarker( $1, flags[flag] )
+      end
+   end
+   
+   options["output"] = flags["output"] if flags.member?("output") and flags.member?("root")
+  
+   options["to-lp"] = true if flags.member?("to-lp")
+   
+   options["single-mode"] = false
+
+   requestedRoot = nil
+   if parameters.files.length == 1 and parameters.files[0] =~ /\.lp\Z/ and not File.directory?( parameters.files[0] ) then
+      requestedRoot = flags["root"] if flags.member?("root")
+   end
+
+   macros = nil
+   unless flags.member?("to-lp") or flags.member?("no-macros")
+
+      macros = {}
+      macros.update(ENV) unless flags.member?("no-macro-environment")
+      macros.default = flags["macro"].to_s
+
+      flags.keys.each do |flag|
+         if flag =~ /macro-(\w*)\Z/ then
+            macros[$1] = flags[flag]
+         end
+      end
+
+   end
+   
+   
+
+ #-----------------------------------------------------------------------------
+ # Create the procs for use by the FilesProcessor.
+
+   #
+   # onFile runs an lp file through the compiler.
+   
+   onFile = proc do |path|
+
+      Output.puts( path + ":" )
+      absolute = File.expand_path( path )
+   
+   
+      #
+      # All we really have to do is load each file, and call compile() for 
+      # each root.
+
+      lpfile = Tapestry::LP::LPFile.produce( absolute )
+
+      roots = nil
+      if requestedRoot.nil? then
+         roots = lpfile.roots
+      else
+         roots = [ requestedRoot ]
+      end
+
+
+      roots.each do |root|
+         Output.puts( "generating " + root, 3 )
+   
+         location = lpfile.absolute + ":" + root
+    
+         delete = true
+         output = ""
+         actualoutput = ""
+         begin
+
+            #
+            # We write to the file named after the root, unless an output was 
+            # specified.  Further, we don't directly overwrite any existing 
+            # file by that name, unless told to.  This gives us the opportunity
+            # (below) to update the actual output file iff there has been a change.
+
+            output = root
+            output = options["output"] if options.member?("output")
+   
+            if options.member?("to-lp") then
+               output += ".lp" unless options.member?("output")
+            end
+            
+            actualoutput = output
+            actualoutput += ".working" unless options.member?("overwrite")
+   
+            block = lpfile.coalesced( root )
+
+
+            #
+            # At this point, we are ready to go.  If we are --to-lp, we simply
+            # write lp directives into the file before writing the compiled root.
+            # Note that macros are not expanded in a --to-lp situation.
+            #
+            # If anything goes wrong, we mark the output for deletion.
+
+            File.open( actualoutput, "w" ) do |file|
+               if options.member?("to-lp") then
+                  language = block.language
+
+                  file << "@-set root-listing=yes" + "\n"
+                  file << "@-set root=#{root}" + "\n"
+                  file << "@-set source=#{File.basename(lpfile.absolute)}" + "\n"
+                  file << "\n"
+                  file << "@-block language=#{language}; #{root}" + "\n"
+
+                  block.compile( file, nil, false, options["nesting-depth"] )
+
+               else
+                  block.compile( file, macros, options["include-line-directives"], options["nesting-depth"] )
+
+               end
+
+               delete = false
+
+            end
+
+
+            #
+            # We then diff our output against the existing version, and overwrite only if they
+            # differ.  This avoids needless file modifications.
+
+            if !File.exist?( output ) or !system( "diff \"#{actualoutput}\" \"#{output}\" >/dev/null" ) then
+               File.rename( actualoutput, output )
+            else
+               Output.puts( "existing version up to date", 3 )
+               File.delete( actualoutput )
+            end
+   
+         rescue SystemCallError => error
+            raise Tapestry::Error( "compilation error", { "details", "unable to create output file", "error", error.message, "location", location } )
+
+         rescue Tapestry::Error => error
+            error.set( "location", location )
+            raise
+
+         ensure
+            begin
+               File.delete( actualoutput ) if delete
+            rescue SystemCallError
+            end
+         end
+   
+         Output.skip()
+      end
+    
+      true
+   end
+
+
+
+   #
+   # Handles files that do not end in .lp
+
+   onUnrecognized = proc do |filepath|
+      Output.puts( filepath + ": not an lp file", 0, STDERR )
+   end
+
+
+   #
+   # Handles specified files that do not exist
+
+   onMissing = proc do |filepath|
+      Output.puts( filepath + ": does not exist", 0, STDERR );
+   end
+
+
+
+
+ #-----------------------------------------------------------------------------
+ # RUN
+
+   pattern   = ( flags.member?("force") ? // : LPFILEPATTERN )
+   processor = Tapestry::FilesProcessor.new( pattern, false, true, onFile, nil, nil, onUnrecognized, onMissing )
+
+   processor.processFiles( files )
+
+
+
+
+#------------------------------------------------------------------------------
+
+rescue LoadError => error
+   STDERR.puts( ">>> Unable to load code libraries." )
+   STDERR.puts( ">>> Perhaps the library path has not been added to RUBYLIB?" )
+   STDERR.puts( ">>> Details: #{error.message}" )
+
+   exit 2
+
+rescue Exception => error
+   raise unless method(:handle)
+   exit handle( error, flags ).to_i
+end
+
+
+exit 0
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

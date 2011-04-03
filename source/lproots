@@ -1,0 +1,151 @@
+#!/usr/bin/ruby
+#
+# tapestry/tools
+# lproots - outputs the list of roots, one to a line
+#
+# ------------------------------------------------------------------------
+#
+# Copyright Chris Poirier 2002-2003.  Contact cpoirier@tapestry-os.org.
+# Licensed under the Open Software License, version 1.1
+#
+# This program is licensed in the hope that it will be useful, but WITHOUT
+# ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
+# FITNESS FOR A PARTICULAR PURPOSE.  Use is ENTIRELY AT YOUR OWN RISK.
+#
+
+
+#------------------------------------------------------------------------------
+# Constants follow.  Jump to #CODE for the start of the code.
+
+PRODUCT_VERSION    = "1.03b"
+PRODUCT_NAME       = "tapestry/tools lproots"
+PRODUCT_COPYRIGHT  = "Copyright 2002-2003 Chris Poirier (cpoirier@tapestry-os.org)" 
+PRODUCT_DESCRIPTOR = "#{PRODUCT_NAME} #{PRODUCT_VERSION}"
+PRODUCT_LICENSE    = "Licensed under the Open Software License, version 1.1"
+
+
+
+USAGEHELP = <<END_USAGE
+
+  Generates a list of roots from lp source files (type 
+  'lphelp' for information on the lp system).
+                                                              
+Usage: lproots [options] <file>                             
+                                                              
+  --help                                                  
+       Displays this usage information.                       
+                                                              
+  --force
+       If present, the *.lp* requirement for file names is 
+       discarded.  
+
+END_USAGE
+
+
+
+
+
+
+
+#------------------------------------------------------------------------------
+# START OF #CODE
+
+
+begin
+
+   require 'tapestry-unpackaged/language-extensions.rb'
+   require 'tapestry-unpackaged/lp/Output.rb'
+   require 'tapestry-unpackaged/lp/handle.rb'
+   require 'tapestry-unpackaged/lp/constants.rb'
+
+   require 'tapestry-packaged/CommandLineParser.rb'
+   require 'tapestry-packaged/FilesProcessor.rb'
+   require 'tapestry-packaged/lp/LPFile.rb'
+
+
+ #-----------------------------------------------------------------------------
+ # Start by parsing the command line options and printing help, if appropriate.
+
+
+   parameters = Tapestry::CommandLineParser.new()
+   flags      = parameters.flags
+   files      = parameters.files
+
+   if flags.member?("help") or files.empty? then
+      Output.puts( PRODUCT_DESCRIPTOR )
+      Output.skip()
+      Output.puts( PRODUCT_COPYRIGHT  )
+      Output.puts( PRODUCT_LICENSE    )
+      Output.skip()
+      puts USAGEHELP
+      exit
+   end
+
+
+
+ #-----------------------------------------------------------------------------
+ # Create the procs for use by the FilesProcessor.
+
+   #
+   # onFile is the root scanner.
+
+   onFile = proc do |path|
+
+      absolute = File.expand_path( path )
+      lpfile   = Tapestry::LP::LPFile.produce( absolute )
+
+      lpfile.roots.each do |name|
+         puts( name )
+      end
+    
+      true
+
+   end
+
+
+   #
+   # Handles files that do not end in .lp
+
+   onUnrecognized = proc do |filepath|
+      Output.puts( filepath + ": not an lp file", 0, STDERR )
+   end
+
+
+   #
+   # Handles specified files that do not exist
+
+   onMissing = proc do |filepath|
+      Output.puts( filepath + ": does not exist", 0, STDERR );
+   end
+
+
+
+
+ #-----------------------------------------------------------------------------
+ # RUN
+
+   pattern   = ( flags.member?("force") ? // : LPFILEPATTERN )
+   processor = Tapestry::FilesProcessor.new( pattern, false, true, onFile, nil, nil, onUnrecognized, onMissing )
+
+   processor.processFiles( files[0] )
+
+
+
+
+#------------------------------------------------------------------------------
+
+rescue LoadError => error
+   STDERR.puts( ">>> Unable to load code libraries." )
+   STDERR.puts( ">>> Perhaps the library path has not been added to RUBYLIB?" )
+   STDERR.puts( ">>> Details: #{error.message}" )
+
+   exit 2
+
+rescue Exception => error
+   raise unless method(:handle)
+   exit handle( error, flags ).to_i
+end
+
+
+exit 0
+

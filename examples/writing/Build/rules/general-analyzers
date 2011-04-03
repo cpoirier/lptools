@@ -1,0 +1,22 @@
+(-- -----------------------------------------------------------------------------------------------)
+(-- An analyzer to find inter-lp-file dependencies.                                                )
+
+(def-analyzer lpdeps *.lp (pipe-in lpdeps --force $source))
+
+
+
+(-- -----------------------------------------------------------------------------------------------)
+(-- An analyzer to ensure the system is rebuilt if the Buildfile or Buildrules change              )
+
+(def-analyzer buildfile (member? (get-alias @raw-sources) $source-logical) 
+   (l Buildfile)
+)
+
+(def-analyzer buildrules Buildfile (wildcard-glob $WRITING_ROOT/Build/rules/*))
+
+
+(-- -----------------------------------------------------------------------------------------------)
+(-- An analyzer to ensure changes to the xsl stylesheets are recognized.                           )
+
+(def-analyzer xslt *.xsl (wildcard-glob $WRITING_ROOT/Build/xsl/pieces/*))
+

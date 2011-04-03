@@ -1,0 +1,9 @@
+(-- -----------------------------------------------------------------------------------------------)
+(-- We do a lot or adding targets to aliases.  This function encapsulates it.                      )
+
+(def-function add-to-alias ($alias:literal-expression $target:literal-expression)
+   (def-alias $alias (merge (get-alias $alias) $target))
+)
+
+
+

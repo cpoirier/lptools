@@ -1,0 +1,86 @@
+BODY, SPAN, TABLE, TR, TD, P, H1, H2  
+{ 
+   font-family:      "Arial", "Helvetica", sans-serif;
+   font-size:        12pt; 
+}
+
+.small
+{
+   font-size:        9pt;
+   font-weight:      normal;
+}
+
+P 
+{
+   margin:           1em;
+   text-indent:      2em;
+   text-align:       justify;
+}
+
+HR
+{
+   width:            35%;
+   height:           1px;
+   margin-top:       2em;
+   margin-bottom:    2em;
+   padding:          0;
+   border:           1px dotted black;
+}
+
+H1
+{
+   font-family:      "Arial", "Helvetica", sans-serif;
+   font-weight:      bold;
+   text-align:       center;
+   padding-top:      6pt;
+   margin-top:       24pt;
+}
+
+.treatment
+{
+   border:           dashed black 1px;
+
+   margin-left:      2em;
+   margin-right:     2em;
+   margin-top:       2em;
+   margin-bottom:    2em;
+
+   clear:            both;
+
+}
+
+.treatment, .treatment P
+{
+   font-style:       italic;
+   text-indent:      0pt;
+   font-size:        9pt;
+}
+
+P.chapter-links
+{
+   padding:          0;
+   margin:           0;
+   text-align:       right;
+}
+
+HR.chapter-links
+{
+   width:            100%;
+   margin-bottom:    0;
+   margin-top:       2em;
+}
+
+.status
+{
+   text-indent:      0;
+   font-weight:      bold;
+   margin-bottom:    2em;
+   background-color: #CCCCCC;
+   color:            black;
+   padding:          2pt;
+}
+
+.box
+{
+   border:           1px solid black;
+}

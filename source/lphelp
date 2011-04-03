@@ -1,0 +1,360 @@
+#!/usr/bin/ruby
+#
+# tapestry/tools
+# lphelp - provides general help on the lp system
+#
+# ------------------------------------------------------------------------
+#
+# Copyright Chris Poirier 2002.  Contact cpoirier@tapestry-os.org.
+# Licensed under the Open Software License, version 1.1
+#
+# This program is licensed in the hope that it will be useful, but WITHOUT
+# ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
+# FITNESS FOR A PARTICULAR PURPOSE.  Use is ENTIRELY AT YOUR OWN RISK.
+#
+
+begin  # a catch all
+
+PRODUCT_VERSION    = "1.03b"
+PRODUCT_NAME       = "tapestry/tools lpcc"
+PRODUCT_COPYRIGHT  = "Copyright 2002-2003 Chris Poirier (cpoirier@tapestry-os.org)" 
+PRODUCT_DESCRIPTOR = "#{PRODUCT_NAME} #{PRODUCT_VERSION}"
+PRODUCT_LICENSE    = "Licensed under the Open Software License, version 1.1"
+
+
+puts <<END
+>>> #{PRODUCT_DESCRIPTOR}
+
+>>> #{PRODUCT_COPYRIGHT}
+>>> #{PRODUCT_LICENSE}
+
+
+
+Quick Reference
+---------------
+   lphelp     - this documentation
+   lptags     - generates ctags for lp files
+   lpcc       - assembles compilable code from lp files
+   lpdoc      - formats XML documentation from lp files
+   lproots    - lists the root blocks in an lp file
+   example.lp - a full example you can run through the lp
+                tools
+
+
+
+The lp System
+-------------
+
+lp provides a very simple literate programming environment.
+Literate programming is a way of writing code, originally
+invented by Knuth, in which the target reader is a human,
+not a compiler: the code is a slave to the documentation, not
+the other way around.  I'm not going to go into great detail
+on the principles of literate programming here, as there are
+plenty of websites that deal with topic.  In brief, literate
+programs have the following basic characteristics:
+
+   - code is defined in the order most relevant to the reader,
+     not the compiler, and is then assembled into compilable
+     form by a tool
+
+   - the source files are written in such a way as to be
+     easily-convertible into nicely formatted documentation
+
+
+Literate programming tools differ vastly from one another in
+how much wrapping they put around these basic ideas.  lp is
+designed with the following goals in mind:
+
+   - source files should work just as well for writers as
+     readers
+
+   - the syntax should be simple and readable, and shouldn't
+     distract from the content
+
+   - an XML document web should be the documentation output
+
+   - ctags should be supported for block names and language
+     identifiers
+
+
+
+General Structure of an lp File
+-------------------------------
+
+Literate programs are organized into blocks.  lp has two types
+of blocks: text and code.  
+
+Text blocks contain plain English (or another non-programming) 
+language, and form the discussion of the system the source file 
+represents.  Text blocks can optionally be named. 
+
+Code blocks are always named, and contain programming language 
+text.  Code blocks differ from named text blocks in that code 
+blocks are always specified with a programming language 
+(ie. language=c;).
+
+Any named block (text or code) can be referenced from another 
+location in the source, and from other source files.  It is 
+using this mechanism that the writer defines how to assemble 
+the code fragments into an output file.
+
+
+
+Commands to the lp System
+-------------------------
+
+Most commands to the lp system require one or more parameters.
+In most cases, you will supply these parameters as name=value
+pairs, separated by semi-colons (;).  Parameters must be
+specified in a particular order, although some parameters
+may be optional.  The last parameter you supply does not have
+to have a name=, as it will be inferred from the position in
+the list.  For instance, let's say the parameters you need to
+specify are (file, name, label), and only name is required.
+The following three would all be valid command lines:
+---8<-----------------------------------------------------------
+file=test.lp; name=a name; label=a label
+name=a name; a label
+a name
+--->8-----------------------------------------------------------
+
+
+
+Defining Blocks in lp
+---------------------
+
+Blocks start with a block marker, and end with the start of
+the next block.  Unnamed text blocks are started with an @- 
+sequence, on a line by itself.  A text block is automatically 
+started at the beginning of the source file.
+
+Named text blocks are started with an @-block command (which 
+must start the line), followed by a parameter list (root, 
+language, name) of which only name is required.
+
+---8<-----------------------------------------------------------
+@-block an arbitrary name
+--->8-----------------------------------------------------------
+starts a named text block with the name "an arbitrary name".
+
+---8<-----------------------------------------------------------
+@-block language=c++; an arbitrary name
+--->8-----------------------------------------------------------
+starts a c++ code block named "an arbitrary name"
+
+---8<-----------------------------------------------------------
+@-block root=yes; language=c++; filename.cc 
+--->8-----------------------------------------------------------
+starts a c++ code block named filename.cc.  lproots will report
+this block as a root, and lpcc can be used to generate a file
+named "filename.cc" containing the expanded contents of this
+block.
+
+Block names can contain just about any characters, including
+spaces, but excluding the semi-colon (;), and a sequence of
+two closing curly braces (}}).
+
+
+
+Referencing Blocks in lp
+------------------------
+
+Named blocks are referenced by a parameter list enclosed in
+two sets of curly braces.  The parameter list is (file, name,
+label), of which only name is required.  The reference can be
+embedded in text, but must fit entirely on one line:
+---8<-----------------------------------------------------------
+There are terribly interesting things happening, and you should
+see {{name=a block (not this one); labelled this}}.  On other
+fronts, it is raining.  
+--->8-----------------------------------------------------------
+
+A reference in a text block will be replaced with an <lp:ref>
+tag in the documentation output (generated by lpdoc).  
+
+A reference in a code block will be replaced by its contents
+in the code output (generated by lpcc).  Any text or whitespace 
+surrounding the reference will be duplicated for each line of the 
+transcluded block.  This ensures that transcluded data is 
+appropriately indented and/or comment marked.
+
+In code blocks, it is sometimes convenient to use a cross-
+reference: a reference that is replaced by its label during
+compilation, but rendered as a reference in documentation.
+In lp, the cross-reference has the same members as the regular
+reference, but is surrounded by an extra set of curly braces.
+Cross-references in non-code blocks are equivalent to regular
+references, rendered as an identifier (see next section).
+
+Be careful with references: lpcc cannot expand circular
+references, and will complain if you ask it too.  Specifically,
+circular references are only a problem at the block level.
+
+
+
+
+
+
+Additional directives to the lp system
+--------------------------------------
+
+@-set will set properties on the entire file (if appearing 
+before any other text) or the current block.  You can use these
+commands to cause data to be included in the XML output 
+produced by lpdoc.
+
+---8<-----------------------------------------------------------
+@-set myname=my special message
+
+This is the text of the first block in this file.  lpdoc will
+include a "myname" attribute on the <lp:doc> tag with 
+"my special message" as its value.
+--->8-----------------------------------------------------------
+
+
+
+@-markup directives can be used to trigger lpdoc's automatic
+text markup.  @-markup directives tell the lp system that
+certain text should be converted to a cross-reference by lpdoc.
+The directive takes three parameters (file, name, text),
+of which only name is required.  file and name are used in
+the generation of the reference, and text is both the search
+text and the reference label.  If text is not supplied, name
+is used instead.  The @-markup directive is global to the file,
+and can be issued anywhere within the file.  If several @-markup
+directives are issued for the same text, only the last is used.
+
+lpdoc performs automatic text markup before marking up regular
+references or identifiers.  However, matches enclosed within
+reference tags or quotes are ignored.  Each line is searched
+for each markup text (surrounded by non-word characters).
+If two directives match at the same point, the longer match
+is taken.  If a second match is found within the text of an
+earlier match, it is ignored.
+
+---8<-----------------------------------------------------------
+@-markup name=Object; this links to object
+@-markup Object
+
+The following two lines are now equivalent during lpdoc 
+processing:
+  {{{Object}}}, {{{name=Object; this links to object}}}.
+  Object, this links to object.
+--->8-----------------------------------------------------------
+
+Two additional directives affect markup.  Both take one 
+parameter (text).  @-no-markup is used to specify search text 
+that should not be marked up, regardless of other @-markup 
+directives.  @-cancel-markup is used to specify search text for 
+which any existing @-markup or @-no-markup directive should be
+cancelled.  
+
+
+@-include directives are used to immediately include data from 
+one lp file into another.  The directive takes two parameters
+(file, name), only the first of which is required.  If name is
+supplied, only the named block will be included, otherwise the
+entire file is used.  The directive is processed during lp file 
+parsing.  When it has been processed, the lp system will treat 
+the included text as if you had typed it directly into the 
+file, in place of the @-include directive.  Relative file paths 
+in any included directives will be resolved relative to the 
+including file's location.
+
+@-transclude is identical to @-include, except relative file 
+paths in the transcluded file are resolved relative to the 
+transcluded file's location.
+
+@-inherit directives are similar to @-transclude directives, 
+but accept only one parameter (file), and instead of 
+transcluding everything from the named file, only file level 
+@-set and @-markup directives are transcluded.
+
+
+
+
+Other Helpful Tools in lp
+-------------------------
+
+The lp system tries to simplify the writing of XML in
+a programming context.  Two sets of square brackets can be
+used in text blocks to delimit identifiers: variable names and
+the like.  When generating documentation from the source file,
+the square brackets will be converted to XML tags.
+
+Also, the system will automatically find and convert XML
+special characters (<, >, &, and sometimes ") into XML entities.
+The code that does this is not foolproof, however.  Basically,
+if something looks like a valid XML structure (a tag or and
+entity), it will be left alone.  Generally speaking, avoid
+extraneous whitespace inside your tags, and use entities inside
+tag attribute values, and you will be fine.
+
+Unless you set the appropriate flag on lpdoc, code blocks
+will always be treated as XML free zones, and all XML special
+characters will be quoted in the output.  This means that you
+can used lp to write literate XML!
+
+Finally, lpdoc will autmatically enclose obvious and untagged
+paragraphs with <lp:p> tags.  Paragraphs are identified by the
+blank lines above and below.  
+
+---8<-----------------------------------------------------------
+
+<section>
+<title>A title</title>
+
+This is a paragraph, and will get an lp:p tag.  The two lines
+above will not be quoted, as the "paragraph" starts with a tag.
+Below, the close section tag will also be ignored, for the
+same reason.
+
+<note>This will not be tagged, as the paragraph is already
+tagged by the note tag.</note>
+
+<note>
+This paragraph is also already tagged.
+</note>
+
+This is a paragraph and will be tagged.  Notice the blank
+line above and below.  It is important that you leave a space
+before the close section tag, or it will be included with
+this paragraph!
+
+ <i>This will</i>, be paragraphed too, but only because of the 
+space at the beginning of the line.  Leave it out, and this 
+paragraph will not be marked.
+
+</section>
+--->8-----------------------------------------------------------
+
+
+A final feature provided by the system is available only through
+lpcc.  You can include macros in your lp code, and have them 
+replaced by supplied values during compilation.  A macro is a
+text name enclosed in two sets of dollar signs.  When running
+lpcc, unless you pass --no-macro-environment, all environment 
+variables are automatically available as macros.  Additionally, 
+you can pass --macro-<name>=<value> for each macro you want 
+valued.  You can define the value of unspecified macros with 
+--macro=<value>.  If you do not specify a default, unvalued 
+macros are simply removed.
+
+---8<-----------------------------------------------------------
+@-block language=c++; version marker
+
+#define VERSION "$$VERSION$$"
+--->8-----------------------------------------------------------
+
+END
+
+
+
+rescue Interrupt
+   exit 10;
+rescue
+   puts( "   - caught unknown error:\n      " + $!.message )
+end
+
+

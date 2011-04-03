@@ -1,0 +1,29 @@
+(def-production lpcc 0 *.lp (pipe-in lproots $source))
+(def-action each lpcc (system lpcc --root=$target-file --output=$target 
+                                   --disable-line-directives $source)
+)
+
+(def-production cc 0 *.c hello-world)
+(def-action all cc (system gcc -o $target $sources))
+
+(def-production lpdoc 0 *.lp *.xml)
+(def-action each lpdoc (system lpdoc --output=$target $source))
+
+
+
+
+(-- Define our raw sources )
+
+(def-sources hello-world.lp)
+
+
+(-- Provide a target for cleaning up everything but Buildfile )
+
+(def-macro clean 
+   (do
+      (each $file (get-alias @all-targets)
+         (if (not (wildcard $file Buildfile)) (delete $file))
+      )
+   )
+)
+
