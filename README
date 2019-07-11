@@ -2,7 +2,7 @@ HISTORY
 -------
 
 This is a literate programming environment I wrote back in 2002/2003.  I wrote
-it for a long abandonned O/S project I was mucking with, at the time.  The 
+it for a long abandoned O/S project I was mucking with, at the time.  The 
 code worked, when last run (a long time ago), but there was a bug with the 
 build tool and subprojects, as I recall.  I've moved the code here from 
 its original repository at lptools.tigris.org for the sake of consolidating
